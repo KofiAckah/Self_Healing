@@ -107,7 +107,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(techstream_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(techstream_requests_total[5m])), 0.001)",
+          "expr": "(sum(rate(techstream_requests_total{status=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(techstream_requests_total[5m])), 0.001)",
           "legendFormat": "Error Rate",
           "refId": "A"
         }
@@ -301,13 +301,13 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(techstream_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(techstream_requests_total[5m])), 0.001)",
+          "expr": "(sum(rate(techstream_requests_total{status=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(techstream_requests_total[5m])), 0.001)",
           "legendFormat": "5xx Error Rate",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "sum(rate(techstream_requests_total{status=~\"4..\"}[5m])) / clamp_min(sum(rate(techstream_requests_total[5m])), 0.001)",
+          "expr": "(sum(rate(techstream_requests_total{status=~\"4..\"}[5m])) or vector(0)) / clamp_min(sum(rate(techstream_requests_total[5m])), 0.001)",
           "legendFormat": "4xx Error Rate",
           "refId": "B"
         }
