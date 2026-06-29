@@ -18,6 +18,64 @@ def client():
         c.post("/chaos/reset")
 
 
+def test_index_serves_control_panel(client):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert resp.mimetype == "text/html"
+    body = resp.get_data(as_text=True)
+    assert "TechStream" in body
+    assert "live monitor" in body
+    assert "Inject 500 errors" in body
+
+
+def test_overview_aggregates_prometheus(client, monkeypatch):
+    # Stub the server-side Prometheus calls so the test never hits the network.
+    monkeypatch.setattr(app_module, "_prom_range",
+                        lambda q, minutes=15, step=30: [[1.0, 2.0], [2.0, 4.0]])
+    monkeypatch.setattr(
+        app_module, "_prom_get",
+        lambda path: {
+            "activeTargets": [{"labels": {"job": "techstream-app"}, "health": "up"}],
+            "alerts": [{"labels": {"alertname": "HighErrorRate", "severity": "critical"},
+                        "state": "firing"}],
+        },
+    )
+    data = client.get("/api/overview").get_json()
+    assert data["prometheus_ok"] is True
+    # latest value is the last point of the stubbed series
+    assert data["metrics"]["traffic"]["value"] == 4.0
+    assert data["targets"][0]["job"] == "techstream-app"
+    assert data["alerts"][0]["name"] == "HighErrorRate"
+    assert "chaos" in data
+
+
+def test_overview_survives_prometheus_down(client, monkeypatch):
+    def boom(*a, **k):
+        raise OSError("prometheus unreachable")
+
+    monkeypatch.setattr(app_module, "_prom_range", boom)
+    monkeypatch.setattr(app_module, "_prom_get", boom)
+    resp = client.get("/api/overview")
+    assert resp.status_code == 200  # degrades gracefully, never 500s
+    data = resp.get_json()
+    assert data["prometheus_ok"] is False
+    assert data["metrics"]["traffic"]["value"] is None
+
+
+def test_chaos_status_reflects_state(client):
+    # Healthy by default.
+    resp = client.get("/chaos/status")
+    assert resp.status_code == 200
+    assert resp.get_json()["active"] is False
+
+    # After injecting, status reports active with the right value.
+    client.post("/chaos", json={"mode": "latency", "value": 1.5})
+    data = client.get("/chaos/status").get_json()
+    assert data["active"] is True
+    assert data["state"]["latency"] == 1.5
+    client.post("/chaos/reset")
+
+
 def test_health_ok(client):
     resp = client.get("/health")
     assert resp.status_code == 200
