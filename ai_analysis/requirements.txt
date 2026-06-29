@@ -1,2 +1,4 @@
-# root_cause_analyzer.py is stdlib-only; only analyze.py needs the SDK.
+# root_cause_analyzer.py is stdlib-only; the LLM RCA scripts need an SDK.
+# analyze.py -> Claude (Anthropic); analyze_gemini.py -> Gemini (Google).
 anthropic==0.69.0
+google-genai>=1.0.0
