@@ -16,7 +16,7 @@ terraform {
   # below with the bucket name printed by the bootstrap step, e.g.
   #   techstream-selfhealing-tfstate-<account-id>
   backend "s3" {
-    bucket       = "REPLACE_WITH_YOUR_STATE_BUCKET"
+    bucket       = "techstream-selfhealing-tfstate-412381768295"
     key          = "techstream/terraform.tfstate"
     region       = "eu-west-1"
     encrypt      = true

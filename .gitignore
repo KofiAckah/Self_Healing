@@ -20,6 +20,8 @@ terraform/.terraform.lock.hcl
 terraform/terraform.tfvars
 *.tfvars
 !*.tfvars.example
+tfplan
+*.tfplan
 crash.log
 
 # Generated archives (e.g. Lambda zips, if ever added)

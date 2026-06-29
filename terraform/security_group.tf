@@ -2,7 +2,7 @@
 # not exposed to the world.
 resource "aws_security_group" "techstream" {
   name        = "techstream-self-healing"
-  description = "TechStream self-healing lab — ingress restricted to a single IP"
+  description = "TechStream self-healing lab - ingress restricted to a single IP"
   vpc_id      = data.aws_vpc.default.id
 
   tags = {

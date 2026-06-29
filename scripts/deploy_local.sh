@@ -27,7 +27,13 @@ set +a
 # of the committed config). Write it with restrictive permissions.
 TOKEN_FILE="monitoring/alertmanager/token"
 printf '%s' "$REMEDIATION_TOKEN" > "$TOKEN_FILE"
-chmod 600 "$TOKEN_FILE"
+# Must be readable by the AlertManager container user (runs as uid 65534
+# 'nobody'), which differs from the host user — a 600 file owned by the host
+# user is unreadable inside the container and AlertManager fails to send the
+# webhook. 644 is fine here: this is a low-value internal webhook token (the
+# API key, the real secret, lives in .env/SSM at 600), and the box is
+# single-tenant with the port firewalled to one IP.
+chmod 644 "$TOKEN_FILE"
 echo "Wrote AlertManager token file: $TOKEN_FILE"
 
 echo "Building and starting the stack..."
