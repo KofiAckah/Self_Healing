@@ -8,9 +8,10 @@ TechStream.md
 review.txt
 Requirements.txt
 
-# Demo output artefacts
-rca_report.json
-rca_report.md
+# Demo output artefacts (the generated copies at the repo root; a curated
+# copy under assets/ is committed as reviewer-facing evidence).
+/rca_report.json
+/rca_report.md
 
 # Terraform
 terraform/.terraform/
