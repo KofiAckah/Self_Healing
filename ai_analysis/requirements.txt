@@ -1,0 +1,2 @@
+# root_cause_analyzer.py is stdlib-only; only analyze.py needs the SDK.
+anthropic==0.69.0

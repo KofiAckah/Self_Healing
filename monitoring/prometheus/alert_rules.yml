@@ -1,0 +1,83 @@
+# Golden-Signal alert rules for the TechStream self-healing lab.
+#
+# Five rules, one per Golden Signal (with two for Saturation). The HighErrorRate
+# rule is the one wired to automated remediation via AlertManager.
+
+groups:
+  - name: golden-signals
+    rules:
+      # ----- ERRORS (drives remediation) -----------------------------------
+      # 5xx responses as a fraction of all responses, over a 1-minute window.
+      # The `> 0` traffic guard avoids a 0/0 NaN when the app is idle.
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(techstream_requests_total{status=~"5.."}[1m]))
+            /
+            sum(rate(techstream_requests_total[1m]))
+          ) > 0.05
+          and
+          sum(rate(techstream_requests_total[1m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          signal: errors
+        annotations:
+          summary: "TechStream error rate above 5%"
+          description: "5xx error ratio is {{ $value | humanizePercentage }} over the last minute."
+
+      # ----- LATENCY -------------------------------------------------------
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(techstream_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 2m
+        labels:
+          severity: warning
+          signal: latency
+        annotations:
+          summary: "TechStream P99 latency above 1s"
+          description: "P99 request latency is {{ $value | humanize }}s."
+
+      # ----- TRAFFIC -------------------------------------------------------
+      # Fire when current request rate drops to under 20% of its level 10m ago
+      # (an >80% traffic drop), which can indicate the app is wedged.
+      - alert: TrafficDrop
+        expr: |
+          sum(rate(techstream_requests_total[5m]))
+            < 0.2 * sum(rate(techstream_requests_total[5m] offset 10m))
+          and
+          sum(rate(techstream_requests_total[5m] offset 10m)) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          signal: traffic
+        annotations:
+          summary: "TechStream traffic dropped sharply"
+          description: "Request rate fell more than 80% versus 10 minutes ago."
+
+      # ----- SATURATION: CPU ----------------------------------------------
+      - alert: HighCPU
+        expr: |
+          100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[1m])) * 100) > 80
+        for: 2m
+        labels:
+          severity: warning
+          signal: saturation
+        annotations:
+          summary: "Host CPU utilisation above 80%"
+          description: "CPU utilisation is {{ $value | humanize }}%."
+
+      # ----- SATURATION: MEMORY -------------------------------------------
+      - alert: HighMemory
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 2m
+        labels:
+          severity: warning
+          signal: saturation
+        annotations:
+          summary: "Host memory utilisation above 85%"
+          description: "Memory utilisation is {{ $value | humanize }}%."

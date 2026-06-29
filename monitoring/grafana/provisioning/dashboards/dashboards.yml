@@ -1,0 +1,12 @@
+# Tell Grafana to load dashboard JSON from the mounted dashboards directory.
+apiVersion: 1
+
+providers:
+  - name: "TechStream"
+    orgId: 1
+    folder: "TechStream"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

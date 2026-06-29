@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Bootstraps the lab EC2: installs Docker + the Compose plugin and git, then
+# leaves the box ready for you to clone the repo and run scripts/deploy_local.sh.
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker git
+
+systemctl enable --now docker
+usermod -aG docker ec2-user
+
+# Docker Compose v2 plugin (the `docker compose` subcommand).
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+echo "Bootstrap complete. SSH in, clone the repo, create .env, then run scripts/deploy_local.sh" \
+  > /etc/motd

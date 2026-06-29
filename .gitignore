@@ -1,0 +1,40 @@
+# Secrets — never commit
+.env
+monitoring/alertmanager/token
+
+# Lab planning notes (kept local)
+TechStreamContext.md
+TechStream.md
+review.txt
+Requirements.txt
+
+# Demo output artefacts
+rca_report.json
+rca_report.md
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+terraform/terraform.tfvars
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# Generated archives (e.g. Lambda zips, if ever added)
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,151 @@
+# TechStream self-healing stack.
+#
+# chaos -> app -> Prometheus -> AlertManager -> remediation -> docker restart.
+# node-exporter + cAdvisor provide the saturation signals; Grafana dashboards
+# the Golden Signals.
+#
+# Secrets come from .env (gitignored). The remediation service reaches Docker
+# through a locked-down socket proxy, never the raw socket.
+
+name: techstream
+
+services:
+  app:
+    build: ./app
+    image: techstream-app:latest
+    container_name: techstream-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    networks:
+      - techstream
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health',timeout=3).status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: techstream-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - techstream
+    depends_on:
+      - app
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    container_name: techstream-alertmanager
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Bearer token written by deploy_local.sh from REMEDIATION_TOKEN (.env).
+      - ./monitoring/alertmanager/token:/etc/alertmanager/token:ro
+    ports:
+      - "9093:9093"
+    networks:
+      - techstream
+    depends_on:
+      - remediation
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    container_name: techstream-node-exporter
+    restart: unless-stopped
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - techstream
+    # Host metrics for the saturation signals.
+    pid: host
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: techstream-cadvisor
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - techstream
+    privileged: true
+    devices:
+      - /dev/kmsg
+
+  grafana:
+    image: grafana/grafana:11.5.0
+    container_name: techstream-grafana
+    restart: unless-stopped
+    environment:
+      # Admin password is supplied via .env, never hardcoded.
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?set GF_SECURITY_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - techstream
+    depends_on:
+      - prometheus
+
+  # Locked-down Docker API proxy: the remediation service can only restart
+  # containers through this, never reach the raw socket. Read-only by default;
+  # we enable just CONTAINERS + POST so container restart works and nothing else.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    container_name: techstream-docker-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: "1"
+      POST: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - techstream
+
+  remediation:
+    build: ./remediation
+    image: techstream-remediation:latest
+    container_name: techstream-remediation
+    restart: unless-stopped
+    environment:
+      APP_BASE_URL: "http://app:5000"
+      APP_CONTAINER_NAME: "techstream-app"
+      REMEDIATION_TOKEN: ${REMEDIATION_TOKEN:?set REMEDIATION_TOKEN in .env}
+      REMEDIATION_ALERT: "HighErrorRate"
+      # Point the Docker SDK at the proxy instead of the host socket.
+      DOCKER_HOST: "tcp://docker-socket-proxy:2375"
+    ports:
+      - "127.0.0.1:8081:8081"
+    networks:
+      - techstream
+    depends_on:
+      - docker-socket-proxy
+
+networks:
+  techstream:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:

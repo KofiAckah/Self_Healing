@@ -1,0 +1,34 @@
+# Prometheus configuration for the TechStream self-healing lab.
+# Scrapes the app, the host (node-exporter) and containers (cAdvisor) every 10s,
+# evaluates the Golden-Signal alert rules, and ships firing alerts to
+# AlertManager.
+
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: techstream-app
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["app:5000"]
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
