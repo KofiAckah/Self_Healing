@@ -55,3 +55,12 @@ resource "aws_iam_instance_profile" "techstream" {
   name = "techstream-self-healing"
   role = aws_iam_role.techstream.name
 }
+
+# Make the instance manageable by AWS Systems Manager so the CD pipeline can
+# deploy via SSM Run Command — no inbound SSH, the security group stays locked
+# to a single IP. This is the AWS-managed core policy (ssm:UpdateInstance*,
+# messaging channels, etc.); it grants no application permissions.
+resource "aws_iam_role_policy_attachment" "ssm_core" {
+  role       = aws_iam_role.techstream.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}

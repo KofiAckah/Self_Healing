@@ -35,8 +35,10 @@ __pycache__/
 .venv/
 venv/
 
-# OS / editor
+# OS / editor / local backups
 .DS_Store
 *.swp
+*.backup
+*.bak
 .idea/
 .vscode/

@@ -122,6 +122,40 @@ RUN_E2E=1 pytest tests/test_integration_e2e.py   # live end-to-end (stack up)
 CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs ruff, the unit
 tests, both Docker image builds, and `terraform validate` on every push/PR.
 
+## Continuous deployment (CD)
+
+[.github/workflows/deploy.yml](.github/workflows/deploy.yml) auto-deploys to the
+EC2 **after CI passes on `main`**. It uses **AWS SSM Run Command** — not SSH — so
+the security group stays locked to a single IP (GitHub's runners never connect to
+the instance). The deploy step runs, as `ec2-user`:
+
+```
+cd ~/Self-Healing && git pull --ff-only origin main && bash scripts/deploy_local.sh
+```
+
+**One-time setup (the bits CI can't do for you):**
+
+1. **Grant the instance SSM access** — already in Terraform; apply it:
+   ```bash
+   cd terraform && terraform apply    # attaches AmazonSSMManagedInstanceCore
+   ```
+   The SSM agent ships with AL2023; the instance registers within ~2 min.
+2. **Clone the repo on the EC2** at `~/Self-Healing` with a valid `.env`
+   (already bootstrapped on the current instance).
+3. **Add GitHub repo secrets** (Settings → Secrets and variables → Actions):
+   | Secret | Value |
+   |---|---|
+   | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | credentials that can call SSM |
+   | `AWS_REGION` | `eu-west-1` |
+   | `EC2_INSTANCE_ID` | `i-03283b1706b3f009c` |
+
+> **Security:** prefer a dedicated CI principal over your personal keys — either
+> GitHub OIDC (no long-lived keys) or an IAM user scoped to just
+> `ssm:SendCommand` + `ssm:GetCommandInvocation` on this instance. Don't create
+> the access key in Terraform (it would land in state).
+
+After that, every push to `main` that passes CI redeploys the EC2 automatically.
+
 ## Security notes
 
 - The remediation webhook is **bearer-token authenticated**; it is not an open
